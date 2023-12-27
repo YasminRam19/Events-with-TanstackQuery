@@ -1,4 +1,10 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  redirect,
+  useNavigate,
+  useParams,
+  useSubmit,
+} from "react-router-dom";
 import Modal from "../UI/Modal.jsx";
 import EventForm from "./EventForm.jsx";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -10,6 +16,7 @@ import { updateEvent } from "../../util/http.js";
 export default function EditEvent() {
   const navigate = useNavigate();
   const params = useParams();
+  const submit = useSubmit(); //Used when using React Query & React Router
 
   //Fetch existing data of the event
   const { data, isPending, isError, error } = useQuery({
@@ -44,6 +51,9 @@ export default function EditEvent() {
   function handleSubmit(formData) {
     mutate({ id: params.id, event: formData });
     navigate("../"); //Go up one level to go to the page we are coming from, which is the event detail
+    /*
+    //When using React Query & React Router
+    submit(formData, { method: "PUT" });*/
   }
 
   function handleClose() {
@@ -51,6 +61,7 @@ export default function EditEvent() {
   }
 
   let content;
+
   if (isPending) {
     content = (
       <div className="center">
@@ -92,3 +103,18 @@ export default function EditEvent() {
   }
   return <Modal onClose={handleClose}>{content}</Modal>;
 }
+
+export const loader = ({ params }) => {
+  return queryClient.fetchQuery({
+    queryKey: ["events", params.id],
+    queryFn: ({ signal }) => fetchEvent({ signal, id: params.id }),
+  });
+};
+
+export const action = async ({ request, params }) => {
+  const formData = await request.formData();
+  const updatedEventData = Object.fromEntries(formData);
+  await updateEvent({ id: params.id, event: updatedEventData });
+  await queryClient.invalidateQueries(["events"]);
+  return redirect("../");
+};
